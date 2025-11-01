@@ -35,7 +35,7 @@ jobs:
       - name: Run Postman Collection
         run: |
           newman run ".\postman\MultiApiSolution Tests.postman_collection.json" `
-            -e ".\postman\ShoppingEnvirenment.postman_environment.json" `
+            
             --env-var "baseUrl=http://localhost:5001" `
             --reporters cli,junit,html `
             --reporter-junit-export results\junit.xml `
