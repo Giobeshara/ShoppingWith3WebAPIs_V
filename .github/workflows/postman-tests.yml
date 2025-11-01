@@ -1,4 +1,4 @@
-name: Postman API Tests
+name: Postman API Tests (Windows)
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   postman-tests:
-    runs-on: wíndows-latest
+    runs-on: windows-latest
 
     steps:
       # Step 1: Checkout repository
@@ -20,27 +20,26 @@ jobs:
         with:
           node-version: 18
 
-      # Step 3: Install Newman
+      # Step 3: Install Newman globally
       - name: Install Newman
         run: npm install -g newman
 
       # Step 4: Create results folder
       - name: Create results folder
-        run: mkdir -p results
+        run: New-Item -ItemType Directory -Force -Path results
 
-      # Step 5: Run Postman Collection with Environment
+      # Step 5: Run Postman Collection with Environment (PowerShell syntax)
       - name: Run Postman Collection
         run: |
-          newman run "./MultiApiSolution Tests.postman_collection.json" \
-            -e "./ShoppingEnvirenment.postman_environment.json" \
-            --reporters cli,junit,html \
-            --reporter-junit-export results/junit.xml \
-            --reporter-html-export results/report.html
+          newman run "MultiApiSolution Tests.postman_collection.json" `
+            -e "ShoppingEnvirenment.postman_environment.json" `
+            --reporters cli,junit,html `
+            --reporter-junit-export results\junit.xml `
+            --reporter-html-export results\report.html
 
       # Step 6: Upload test results
       - name: Upload test results
         uses: actions/upload-artifact@v4
         with:
           name: postman-results
-          path: results/
-
+          path: results\
