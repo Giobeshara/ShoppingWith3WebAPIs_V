@@ -1,1 +1,46 @@
+name: Postman API Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+
+jobs:
+  postman-tests:
+    runs-on: wíndows-latest
+
+    steps:
+      # Step 1: Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      # Step 3: Install Newman
+      - name: Install Newman
+        run: npm install -g newman
+
+      # Step 4: Create results folder
+      - name: Create results folder
+        run: mkdir -p results
+
+      # Step 5: Run Postman Collection with Environment
+      - name: Run Postman Collection
+        run: |
+          newman run "./MultiApiSolution Tests.postman_collection.json" \
+            -e "./ShoppingEnvirenment.postman_environment.json" \
+            --reporters cli,junit,html \
+            --reporter-junit-export results/junit.xml \
+            --reporter-html-export results/report.html
+
+      # Step 6: Upload test results
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: postman-results
+          path: results/
 
