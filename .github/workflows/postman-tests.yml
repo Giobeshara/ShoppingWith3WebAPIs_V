@@ -1,46 +1,92 @@
-name: Postman API Tests (Windows - Localhost)
+name: CI .NET REST API Tests with Ngrok
 
 on:
   push:
-    branches: [ main, develop ]
-  pull_request:
+    branches: [main]
 
 jobs:
-  postman-tests:
+  test-dotnet-api:
     runs-on: windows-latest
 
     steps:
-      # 1️⃣ Checkout your code
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2️⃣ Setup Node.js
+      # ------------------------------
+      # 1️⃣ Setup .NET SDK
+      # ------------------------------
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 7.0
+
+      # ------------------------------
+      # 2️⃣ Restore dependencies
+      # ------------------------------
+      - name: Restore .NET dependencies
+        run: dotnet restore MyApi.sln
+
+      # ------------------------------
+      # 3️⃣ Build the API
+      # ------------------------------
+      - name: Build API
+        run: dotnet build MyApi.sln --configuration Release
+
+      # ------------------------------
+      # 4️⃣ Run the API on localhost:5001
+      # ------------------------------
+      - name: Start API
+        run: start /b dotnet run --project ./MyApi/MyApi.csproj --urls "http://localhost:5001"
+        shell: cmd
+
+      # ------------------------------
+      # 5️⃣ Download Ngrok
+      # ------------------------------
+      - name: Download Ngrok
+        run: |
+          curl -L -o ngrok.zip https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-windows-amd64.zip
+          powershell -Command "Expand-Archive -Path ngrok.zip -DestinationPath ."
+        shell: bash
+
+      # ------------------------------
+      # 6️⃣ Start Ngrok tunnel
+      # ------------------------------
+      - name: Start Ngrok tunnel
+        run: start /b ngrok.exe http 5001
+        shell: cmd
+
+      # ------------------------------
+      # 7️⃣ Wait a few seconds for Ngrok to initialize
+      # ------------------------------
+      - name: Wait for Ngrok
+        run: timeout /t 5
+        shell: cmd
+
+      # ------------------------------
+      # 8️⃣ Get public Ngrok URL
+      # ------------------------------
+      - name: Get Ngrok URL
+        run: |
+          $url = (Invoke-RestMethod -Uri http://127.0.0.1:4040/api/tunnels).tunnels[0].public_url
+          Write-Output "NGROK_URL=$url" >> $env:GITHUB_ENV
+        shell: powershell
+
+      # ------------------------------
+      # 9️⃣ Setup Node.js (for Newman)
+      # ------------------------------
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
 
-      # 3️⃣ Install Newman
+      # ------------------------------
+      # 🔟 Install Newman
+      # ------------------------------
       - name: Install Newman
         run: npm install -g newman
 
-    
-      # 5️⃣ Create results folder
-      - name: Create results folder
-        run: New-Item -ItemType Directory -Force -Path results
-
-      # 6️⃣ Run your Postman collection with hard-coded baseUrl
-      - name: Run Postman Collection
-        run: |
-          newman run ".\postman\MultiApiSolution Tests.postman_collection.json" `
-            --env-var "BaseUrl1=http://localhost:5001" `
-            --reporter-html-export results\report.html
-
-  
-
-      # 7️⃣ Upload results for viewing in Actions
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        with:
-          name: postman-results
-          path: results\
+      # ------------------------------
+      # 1️⃣1️⃣ Run Postman Collection against Ngrok URL
+      # ------------------------------
+      - name: Run API Tests
+        run: newman run tests/api_collection.json --env-var "baseUrl=${{ env.NGROK_URL }}"
