@@ -1,4 +1,4 @@
-name: CI .NET REST API Tests with Ngrok
+name: CI ShoppingWith3WebAPIs Tests with Ngrok
 
 on:
   push:
@@ -24,19 +24,19 @@ jobs:
       # 2️⃣ Restore dependencies
       # ------------------------------
       - name: Restore .NET dependencies
-        run: dotnet restore MyApi.sln
+        run: dotnet restore ShoppingWith3WebAPIs.sln
 
       # ------------------------------
       # 3️⃣ Build the API
       # ------------------------------
       - name: Build API
-        run: dotnet build MyApi.sln --configuration Release
+        run: dotnet build ShoppingWith3WebAPIs.sln --configuration Release
 
       # ------------------------------
       # 4️⃣ Run the API on localhost:5001
       # ------------------------------
       - name: Start API
-        run: start /b dotnet run --project ./MyApi/MyApi.csproj --urls "http://localhost:5001"
+        run: start /b dotnet run --project ./ShoppingWith3WebAPIs/ShoppingWith3WebAPIs.csproj --urls "http://localhost:5001"
         shell: cmd
 
       # ------------------------------
