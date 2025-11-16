@@ -1,92 +1,55 @@
-name: CI ShoppingWith3WebAPIs Tests with Ngrok
+# .github/workflows/api-ci.yml
+name: API Integration Tests
 
 on:
   push:
-    branches: [main]
+  pull_request:
 
 jobs:
-  test-dotnet-api:
-    runs-on: windows-latest
+  api-tests:
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      # 1. Checkout the repo
+      - uses: actions/checkout@v4
 
-      # ------------------------------
-      # 1️⃣ Setup .NET SDK
-      # ------------------------------
+      # 2. Setup .NET
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: 7.0
+          dotnet-version: 8.0.x # match your version
 
-      # ------------------------------
-      # 2️⃣ Restore dependencies
-      # ------------------------------
-      - name: Restore .NET dependencies
-        run: dotnet restore ShoppingWith3WebAPIs.sln
-
-      # ------------------------------
-      # 3️⃣ Build the API
-      # ------------------------------
-      - name: Build API
-        run: dotnet build ShoppingWith3WebAPIs.sln --configuration Release
-
-      # ------------------------------
-      # 4️⃣ Run the API on localhost:5001
-      # ------------------------------
-      - name: Start API
-        run: start /b dotnet run --project ./ShoppingWith3WebAPIs/ShoppingWith3WebAPIs.csproj --urls "http://localhost:5001"
-        shell: cmd
-
-      # ------------------------------
-      # 5️⃣ Download Ngrok
-      # ------------------------------
-      - name: Download Ngrok
-        run: |
-          curl -L -o ngrok.zip https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-windows-amd64.zip
-          powershell -Command "Expand-Archive -Path ngrok.zip -DestinationPath ."
-        shell: bash
-
-      # ------------------------------
-      # 6️⃣ Start Ngrok tunnel
-      # ------------------------------
-      - name: Start Ngrok tunnel
-        run: start /b ngrok.exe http 5001
-        shell: cmd
-
-      # ------------------------------
-      # 7️⃣ Wait a few seconds for Ngrok to initialize
-      # ------------------------------
-      - name: Wait for Ngrok
-        run: timeout /t 5
-        shell: cmd
-
-      # ------------------------------
-      # 8️⃣ Get public Ngrok URL
-      # ------------------------------
-      - name: Get Ngrok URL
-        run: |
-          $url = (Invoke-RestMethod -Uri http://127.0.0.1:4040/api/tunnels).tunnels[0].public_url
-          Write-Output "NGROK_URL=$url" >> $env:GITHUB_ENV
-        shell: powershell
-
-      # ------------------------------
-      # 9️⃣ Setup Node.js (for Newman)
-      # ------------------------------
-      - name: Setup Node.js
+      # 3. Setup Node (for Newman)
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 18
 
-      # ------------------------------
-      # 🔟 Install Newman
-      # ------------------------------
+      # 4. Install Newman globally
       - name: Install Newman
         run: npm install -g newman
 
-      # ------------------------------
-      # 1️⃣1️⃣ Run Postman Collection against Ngrok URL
-      # ------------------------------
-      - name: Run API Tests
-        run: newman run tests/api_collection.json --env-var "baseUrl=${{ env.NGROK_URL }}"
+      # 5. Build the entire solution
+      - name: Build Solution
+        run: dotnet build ShoppingMicroServicesApp.sln --configuration Release
+
+      # 6. Run UsersWebAPI in background
+      - name: Start UsersWebAPI
+        run: |
+          dotnet run --project UsersWebAPI/UsersWebAPI.csproj &
+          sleep 10  # wait for API to start
+
+      # 7. Run Postman Collection using Newman
+      - name: Run Postman Tests
+        run: |
+          newman run ECommerceIntegrationTests.postman_collection.json \
+            -e ECommerceEnvironment_updated.postman_environment.json \
+            --reporters cli,junit \
+            --reporter-junit-export newman-report.xml
+
+      # 8. Upload test report (optional)
+      - name: Upload Newman Test Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: newman-report
+          path: newman-report.xml
