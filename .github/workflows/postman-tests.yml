@@ -1,0 +1,55 @@
+# .github/workflows/api-ci.yml
+name: API Integration Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  api-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout the repo
+      - uses: actions/checkout@v4
+
+      # 2. Setup .NET
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 8.0.x # match your version
+
+      # 3. Setup Node (for Newman)
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      # 4. Install Newman globally
+      - name: Install Newman
+        run: npm install -g newman
+
+      # 5. Build the entire solution
+      - name: Build Solution
+        run: dotnet build ShoppingMicroServicesApp.sln --configuration Release
+
+      # 6. Run UsersWebAPI in background
+      - name: Start UsersWebAPI
+        run: |
+          dotnet run --project UsersWebAPI/UsersWebAPI.csproj &
+          sleep 10  # wait for API to start
+
+      # 7. Run Postman Collection using Newman
+      - name: Run Postman Tests
+        run: |
+          newman run ECommerceIntegrationTests.postman_collection.json \
+            -e ECommerceEnvironment_updated.postman_environment.json \
+            --reporters cli,junit \
+            --reporter-junit-export newman-report.xml
+
+      # 8. Upload test report (optional)
+      - name: Upload Newman Test Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: newman-report
+          path: newman-report.xml
